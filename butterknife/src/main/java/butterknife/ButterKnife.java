@@ -216,26 +216,31 @@ public final class ButterKnife {
   @Nullable @CheckResult @UiThread
   private static Constructor<? extends Unbinder> findBindingConstructorForClass(Class<?> cls) {
     Constructor<? extends Unbinder> bindingCtor = BINDINGS.get(cls);
+    // 先找缓存
     if (bindingCtor != null) {
       if (debug) Log.d(TAG, "HIT: Cached in binding map.");
       return bindingCtor;
     }
+    // 检查下是否支持这个类
     String clsName = cls.getName();
     if (clsName.startsWith("android.") || clsName.startsWith("java.")) {
       if (debug) Log.d(TAG, "MISS: Reached framework class. Abandoning search.");
       return null;
     }
     try {
+      // 找到类名为Activity的类名+"_ViewBinding"的类，实例化，并返回
       Class<?> bindingClass = Class.forName(clsName + "_ViewBinding");
       //noinspection unchecked
       bindingCtor = (Constructor<? extends Unbinder>) bindingClass.getConstructor(cls, View.class);
       if (debug) Log.d(TAG, "HIT: Loaded binding class and constructor.");
     } catch (ClassNotFoundException e) {
       if (debug) Log.d(TAG, "Not found. Trying superclass " + cls.getSuperclass().getName());
+      // 注意这里支持了继承关系
       bindingCtor = findBindingConstructorForClass(cls.getSuperclass());
     } catch (NoSuchMethodException e) {
       throw new RuntimeException("Unable to find binding constructor for " + clsName, e);
     }
+    // 缓存 bindingCtor
     BINDINGS.put(cls, bindingCtor);
     return bindingCtor;
   }

@@ -177,14 +177,17 @@ public final class ButterKnifeProcessor extends AbstractProcessor {
   }
 
   @Override public boolean process(Set<? extends TypeElement> elements, RoundEnvironment env) {
+    // 解析注解
     Map<TypeElement, BindingSet> bindingMap = findAndParseTargets(env);
 
+    // 解析完成以后，需要生成的代码结构已经都有了，它们都存在于每一个 BindingSet 当中
     for (Map.Entry<TypeElement, BindingSet> entry : bindingMap.entrySet()) {
       TypeElement typeElement = entry.getKey();
       BindingSet binding = entry.getValue();
 
       JavaFile javaFile = binding.brewJava(sdk);
       try {
+        // 这一步完成真正的代码生成
         javaFile.writeTo(filer);
       } catch (IOException e) {
         error(typeElement, "Unable to write binding for type %s: %s", typeElement, e.getMessage());
@@ -409,6 +412,7 @@ public final class ButterKnifeProcessor extends AbstractProcessor {
       Set<TypeElement> erasedTargetNames) {
     TypeElement enclosingElement = (TypeElement) element.getEnclosingElement();
 
+    // 检验 element 是否符合条件
     // Start by verifying common generated code restrictions.
     boolean hasError = isInaccessibleViaGeneratedCode(BindView.class, "fields", element)
         || isBindingInWrongPackage(BindView.class, element);
@@ -467,6 +471,7 @@ public final class ButterKnifeProcessor extends AbstractProcessor {
       Set<TypeElement> erasedTargetNames) {
     TypeElement enclosingElement = (TypeElement) element.getEnclosingElement();
 
+    // 检验 element 是否符合条件
     // Start by verifying common generated code restrictions.
     boolean hasError = isInaccessibleViaGeneratedCode(BindViews.class, "fields", element)
         || isBindingInWrongPackage(BindViews.class, element);
@@ -493,6 +498,7 @@ public final class ButterKnifeProcessor extends AbstractProcessor {
       }
       kind = FieldCollectionViewBinding.Kind.LIST;
     } else {
+      // 显然这里被注入的对象类型不能是 Iterable，List 除外~
       error(element, "@%s must be a List or array. (%s.%s)", BindViews.class.getSimpleName(),
           enclosingElement.getQualifiedName(), element.getSimpleName());
       hasError = true;
@@ -503,6 +509,7 @@ public final class ButterKnifeProcessor extends AbstractProcessor {
     }
 
     // Verify that the target type extends from View.
+    // 验证被注入的是View的子类
     if (viewType != null && !isSubtypeOfType(viewType, VIEW_TYPE) && !isInterface(viewType)) {
       if (viewType.getKind() == TypeKind.ERROR) {
         note(element, "@%s List or array with unresolved type (%s) "
@@ -519,6 +526,7 @@ public final class ButterKnifeProcessor extends AbstractProcessor {
 
     // Assemble information on the field.
     String name = element.getSimpleName().toString();
+    // 以前已经确认是单值绑定，所以出现了参数为0个的情况就报错
     int[] ids = element.getAnnotation(BindViews.class).value();
     if (ids.length == 0) {
       error(element, "@%s must specify at least one ID. (%s.%s)", BindViews.class.getSimpleName(),
@@ -546,7 +554,7 @@ public final class ButterKnifeProcessor extends AbstractProcessor {
     for (int id : ids) {
       idVars.add(getId(id));
     }
-
+    // 根据注解信息来生成注入关系，并添加到builderMap中
     BindingSet.Builder builder = getOrCreateBindingBuilder(builderMap, enclosingElement);
     builder.addFieldCollection(new FieldCollectionViewBinding(name, type, kind, idVars, required));
 

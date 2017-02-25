@@ -88,11 +88,13 @@ final class BindingSet {
 
   private TypeSpec createType(int sdk) {
     TypeSpec.Builder result = TypeSpec.classBuilder(bindingClassName.simpleName())
+        // 添加修饰符为 public，生成的类是 public 的
         .addModifiers(PUBLIC);
     if (isFinal) {
       result.addModifiers(FINAL);
     }
 
+    /** 其实 Bind 过程也是有继承关系的，我有一个 Activity A 有注入，另一个 B 继承它，那么生成注入 B 的成员的代码时，就要把 A 的注入一起捎上 */
     if (parentBinding != null) {
       result.superclass(parentBinding.bindingClassName);
     } else {
@@ -103,6 +105,7 @@ final class BindingSet {
       result.addField(targetTypeName, "target", PRIVATE);
     }
 
+    // 这里的代码很关键，我们的绝大多数注入用到的代码都在这里了
     if (isView) {
       result.addMethod(createBindingConstructorForView());
     } else if (isActivity) {
@@ -120,6 +123,7 @@ final class BindingSet {
       result.addMethod(createBindingUnbindMethod(result));
     }
 
+    // 输出一个BingdingSet对象
     return result.build();
   }
 
@@ -138,6 +142,7 @@ final class BindingSet {
   }
 
   private MethodSpec createBindingConstructorForView() {
+    // 创建构造函数
     MethodSpec.Builder builder = MethodSpec.constructorBuilder()
         .addAnnotation(UI_THREAD)
         .addModifiers(PUBLIC)
@@ -224,6 +229,8 @@ final class BindingSet {
     if (hasViewBindings()) {
       if (hasViewLocal()) {
         // Local variable in which all views will be temporarily stored.
+        /** 这里就是注入 view了，addViewBindings 这个方法其实就生成功能上类似
+        TextView textView = (TextView) findViewById(...) 的代码 */
         constructor.addStatement("$T view", VIEW);
       }
       for (ViewBinding binding : viewBindings) {
